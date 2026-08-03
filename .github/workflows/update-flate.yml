@@ -1,0 +1,155 @@
+name: Update flate
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Fetch latest flate release
+        id: release
+        run: |
+          LATEST=$(gh api repos/home-operations/flate/releases/latest --jq '.tag_name' 2>/dev/null) || {
+            echo "Failed to fetch latest release from GitHub API — exiting gracefully"
+            echo "fetch_ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+          echo "tag=${LATEST}" >> "$GITHUB_OUTPUT"
+          VERSION="${LATEST#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "fetch_ok=true" >> "$GITHUB_OUTPUT"
+          echo "Latest release: ${LATEST} (version ${VERSION})"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Parse current version from flake.nix
+        if: steps.release.outputs.fetch_ok == 'true'
+        id: current
+        run: |
+          CURRENT=$(grep -oP 'version = "\K[^"]+' flake.nix)
+          echo "version=${CURRENT}" >> "$GITHUB_OUTPUT"
+          echo "Current version: ${CURRENT}"
+
+      - name: Check if update is needed
+        if: steps.release.outputs.fetch_ok == 'true'
+        id: check
+        run: |
+          if [ "${{ steps.release.outputs.version }}" = "${{ steps.current.outputs.version }}" ]; then
+            echo "No update needed (both at ${{ steps.current.outputs.version }})"
+            echo "needs_update=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Update needed: ${{ steps.current.outputs.version }} -> ${{ steps.release.outputs.version }}"
+            echo "needs_update=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prefetch source tarball hash
+        if: steps.check.outputs.needs_update == 'true'
+        id: src
+        run: |
+          TAG="${{ steps.release.outputs.tag }}"
+          URL="https://github.com/home-operations/flate/archive/refs/tags/${TAG}.tar.gz"
+          echo "Fetching ${URL} ..."
+          HASH=$(nix store prefetch-file "$URL" --json | jq -r '.hash')
+          echo "Source hash: ${HASH}"
+          echo "hash=${HASH}" >> "$GITHUB_OUTPUT"
+
+      - name: Update flake.nix with new version, rev, and source hash
+        if: steps.check.outputs.needs_update == 'true'
+        run: |
+          NEW_VERSION="${{ steps.release.outputs.version }}"
+          NEW_TAG="${{ steps.release.outputs.tag }}"
+          NEW_HASH="${{ steps.src.outputs.hash }}"
+
+          sed -i "s|version = \"[^\"]*\"|version = \"${NEW_VERSION}\"|" flake.nix
+          sed -i "s|rev = \"[^\"]*\"|rev = \"${NEW_TAG}\"|" flake.nix
+          sed -i "s|hash = \"[^\"]*\"|hash = \"${NEW_HASH}\"|" flake.nix
+          sed -i "s|-X main.version=[^\"]*|-X main.version=${NEW_VERSION}|" flake.nix
+
+          echo "Updated flake.nix:"
+          grep -E '(version|rev|hash|main.version)' flake.nix
+
+      - name: Compute vendorHash via nix build
+        if: steps.check.outputs.needs_update == 'true'
+        id: vendor
+        run: |
+          # Set vendorHash to a deliberately wrong hash so Nix reports the correct one
+          FAKE_HASH="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+          sed -i "s|vendorHash = \"[^\"]*\"|vendorHash = \"${FAKE_HASH}\"|" flake.nix
+
+          # Attempt build; Nix will fail and print the expected hash
+          BUILD_OUTPUT=$(nix build .#flate 2>&1) || true
+
+          # Extract the correct hash from the error message
+          CORRECT_HASH=$(echo "$BUILD_OUTPUT" | grep -oP 'got:\s+\Ksha256-[A-Za-z0-9+/=]+')
+
+          if [ -z "$CORRECT_HASH" ]; then
+            echo "Failed to extract vendorHash from build output:"
+            echo "$BUILD_OUTPUT"
+            exit 1
+          fi
+
+          echo "Computed vendorHash: ${CORRECT_HASH}"
+          echo "hash=${CORRECT_HASH}" >> "$GITHUB_OUTPUT"
+
+          # Apply the correct vendorHash
+          sed -i "s|vendorHash = \"${FAKE_HASH}\"|vendorHash = \"${CORRECT_HASH}\"|" flake.nix
+
+      - name: Close existing update PRs and delete branches
+        if: steps.check.outputs.needs_update == 'true'
+        run: |
+          # Find and close any open PRs from this workflow
+          OPEN_PRS=$(gh pr list \
+            --author "github-actions[bot]" \
+            --head "auto/flate-" \
+            --state open \
+            --json number,headRefName \
+            --jq '.[] | "\(.number) \(.headRefName)"')
+
+          if [ -n "$OPEN_PRS" ]; then
+            echo "$OPEN_PRS" | while read -r PR_NUM BRANCH; do
+              echo "Closing PR #${PR_NUM} (branch: ${BRANCH})"
+              gh pr close "$PR_NUM" --comment "Superseded by v${{ steps.release.outputs.version }}"
+              git push origin --delete "$BRANCH" 2>/dev/null || true
+            done
+          else
+            echo "No existing update PRs to close"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Create branch, commit, and open PR
+        if: steps.check.outputs.needs_update == 'true'
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+          TAG="${{ steps.release.outputs.tag }}"
+          BRANCH="auto/flate-${TAG}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH"
+          git add flake.nix
+          git commit -m "chore: update flate to ${TAG}"
+
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --title "chore: update flate to ${TAG}" \
+            --body "Upstream release: https://github.com/home-operations/flate/releases/tag/${TAG}" \
+            --base main \
+            --head "$BRANCH"
+        env:
+          GH_TOKEN: ${{ github.token }}
