@@ -75,7 +75,7 @@ jobs:
 
           sed -i "s|version = \"[^\"]*\"|version = \"${NEW_VERSION}\"|" flake.nix
           sed -i "s|rev = \"[^\"]*\"|rev = \"${NEW_TAG}\"|" flake.nix
-          sed -i "s|hash = \"[^\"]*\"|hash = \"${NEW_HASH}\"|" flake.nix
+          sed -i "s|^\([[:space:]]*\)hash = \"[^\"]*\"|\1hash = \"${NEW_HASH}\"|" flake.nix
           sed -i "s|-X main.version=[^\"]*|-X main.version=${NEW_VERSION}|" flake.nix
 
           echo "Updated flake.nix:"
@@ -87,7 +87,7 @@ jobs:
         run: |
           # Set vendorHash to a deliberately wrong hash so Nix reports the correct one
           FAKE_HASH="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-          sed -i "s|vendorHash = \"[^\"]*\"|vendorHash = \"${FAKE_HASH}\"|" flake.nix
+          sed -i "s|^\([[:space:]]*\)vendorHash = \"[^\"]*\"|\1vendorHash = \"${FAKE_HASH}\"|" flake.nix
 
           # Attempt build; Nix will fail and print the expected hash
           BUILD_OUTPUT=$(nix build .#flate 2>&1) || true
@@ -105,7 +105,7 @@ jobs:
           echo "hash=${CORRECT_HASH}" >> "$GITHUB_OUTPUT"
 
           # Apply the correct vendorHash
-          sed -i "s|vendorHash = \"${FAKE_HASH}\"|vendorHash = \"${CORRECT_HASH}\"|" flake.nix
+          sed -i "s|^\([[:space:]]*\)vendorHash = \"${FAKE_HASH}\"|\1vendorHash = \"${CORRECT_HASH}\"|" flake.nix
 
       - name: Close existing update PRs and delete branches
         if: steps.check.outputs.needs_update == 'true'
