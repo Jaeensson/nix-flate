@@ -55,31 +55,42 @@ jobs:
             echo "needs_update=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Prefetch source tarball hash
-        if: steps.check.outputs.needs_update == 'true'
-        id: src
-        run: |
-          TAG="${{ steps.release.outputs.tag }}"
-          URL="https://github.com/home-operations/flate/archive/refs/tags/${TAG}.tar.gz"
-          echo "Fetching ${URL} ..."
-          HASH=$(nix store prefetch-file "$URL" --json | jq -r '.hash')
-          echo "Source hash: ${HASH}"
-          echo "hash=${HASH}" >> "$GITHUB_OUTPUT"
-
-      - name: Update flake.nix with new version, rev, and source hash
+      - name: Update flake.nix with new version, rev, and placeholder hashes
         if: steps.check.outputs.needs_update == 'true'
         run: |
           NEW_VERSION="${{ steps.release.outputs.version }}"
           NEW_TAG="${{ steps.release.outputs.tag }}"
-          NEW_HASH="${{ steps.src.outputs.hash }}"
+          FAKE_SRC_HASH="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
           sed -i "s|version = \"[^\"]*\"|version = \"${NEW_VERSION}\"|" flake.nix
           sed -i "s|rev = \"[^\"]*\"|rev = \"${NEW_TAG}\"|" flake.nix
-          sed -i "s|^\([[:space:]]*\)hash = \"[^\"]*\"|\1hash = \"${NEW_HASH}\"|" flake.nix
+          sed -i "s|^\([[:space:]]*\)hash = \"[^\"]*\"|\1hash = \"${FAKE_SRC_HASH}\"|" flake.nix
           sed -i "s|-X main.version=[^\"]*|-X main.version=${NEW_VERSION}|" flake.nix
 
           echo "Updated flake.nix:"
           grep -E '(version|rev|hash|main.version)' flake.nix
+
+      - name: Compute correct source hash via nix build
+        if: steps.check.outputs.needs_update == 'true'
+        id: src
+        run: |
+          # Attempt build; Nix will fail on the source hash and print the correct one
+          BUILD_OUTPUT=$(nix build .#flate 2>&1) || true
+
+          # Extract the correct hash from the error message
+          CORRECT_HASH=$(echo "$BUILD_OUTPUT" | grep -oP 'got:\s+\Ksha256-[A-Za-z0-9+/=]+')
+
+          if [ -z "$CORRECT_HASH" ]; then
+            echo "Failed to extract source hash from build output:"
+            echo "$BUILD_OUTPUT"
+            exit 1
+          fi
+
+          echo "Computed source hash: ${CORRECT_HASH}"
+          echo "hash=${CORRECT_HASH}" >> "$GITHUB_OUTPUT"
+
+          # Apply the correct source hash
+          sed -i "s|^\([[:space:]]*\)hash = \"[^\"]*\"|\1hash = \"${CORRECT_HASH}\"|" flake.nix
 
       - name: Compute vendorHash via nix build
         if: steps.check.outputs.needs_update == 'true'
