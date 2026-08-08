@@ -25,10 +25,10 @@
               owner = "home-operations";
               repo = "flate";
               rev = "v0.4.14";
-              hash = "sha256-bEE7zrYiCVdVU/OKOM1g/PnhwIUfXtgxIJxE+8QUHpo=";
+              hash = "sha256-TynTUMgrOc3qLEKaE/CPprPix2GFVW+LpnzlqZJb848=";
             };
 
-            vendorHash = "sha256-TynTUMgrOc3qLEKaE/CPprPix2GFVW+LpnzlqZJb848=";
+            vendorHash = "sha256-0o3pibMkswbV9mtwj2iNEMP0BIB+dqTvDTBQselGWKk=";
 
             subPackages = [ "cmd/flate" ];
 
