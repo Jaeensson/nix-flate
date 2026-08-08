@@ -19,16 +19,16 @@
           default = self.packages.${system}.flate;
           flate = pkgs.buildGoModule {
             pname = "flate";
-            version = "0.4.12";
+            version = "0.4.14";
 
             src = pkgs.fetchFromGitHub {
               owner = "home-operations";
               repo = "flate";
-              rev = "v0.4.12";
-              hash = "sha256-434v0ONFaGI/Q1+g4ZuBkyBiO+rOdvFYsNjmE7UwQIY=";
+              rev = "v0.4.14";
+              hash = "sha256-bEE7zrYiCVdVU/OKOM1g/PnhwIUfXtgxIJxE+8QUHpo=";
             };
 
-            vendorHash = "sha256-LZWFG4sQClSvtcKyLVV7YDFKNnMhTDFXuzxZdawIsj8=";
+            vendorHash = "sha256-TynTUMgrOc3qLEKaE/CPprPix2GFVW+LpnzlqZJb848=";
 
             subPackages = [ "cmd/flate" ];
 
@@ -41,7 +41,7 @@
             ldflags = [
               "-s"
               "-w"
-              "-X main.version=0.4.12"
+              "-X main.version=0.4.14"
             ];
 
             meta = with pkgs.lib; {
