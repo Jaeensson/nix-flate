@@ -146,10 +146,14 @@ jobs:
 
           git push origin "$BRANCH"
 
-          gh pr create \
+          PR_URL=$(gh pr create \
             --title "chore: update flate to ${TAG}" \
             --body "Upstream release: https://github.com/home-operations/flate/releases/tag/${TAG}" \
             --base main \
-            --head "$BRANCH"
+            --head "$BRANCH")
+
+          # Enable auto-merge with rebase as the merge strategy.
+          # Fails loudly if the repository does not allow rebase merging.
+          gh pr merge "$PR_URL" --auto --rebase
         env:
           GH_TOKEN: ${{ github.token }}
