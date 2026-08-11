@@ -1,0 +1,16 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "nix": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "description": "Group nixpkgs updates together",
+      "matchManagers": ["nix"],
+      "groupName": "nixpkgs"
+    }
+  ]
+}
