@@ -17,15 +17,15 @@
         in
         {
           default = self.packages.${system}.flate;
-          flate = pkgs.buildGoModule {
+          flate = pkgs.buildGo127Module {
             pname = "flate";
-            version = "0.5.1";
+            version = "0.6.0";
 
             src = pkgs.fetchFromGitHub {
               owner = "home-operations";
               repo = "flate";
-              rev = "v0.5.1";
-              hash = "sha256-kwuY7ZDFFNsPsdjvX0jthwsDB3svSb/Sz0eIw4m9X0k=";
+              rev = "v0.6.0";
+              hash = "sha256-Y4P3RQEkVI3HJvJd8cQmSC65RJYNKGxzB8LvnqgGVfQ=";
             };
 
             vendorHash = "sha256-REVrrpO7Wbd3jj+2x1eLODLiXfpLvnYkS1o5wp3mGm0=";
@@ -41,7 +41,7 @@
             ldflags = [
               "-s"
               "-w"
-              "-X main.version=0.5.1"
+              "-X main.version=0.6.0"
             ];
 
             meta = with pkgs.lib; {

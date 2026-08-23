@@ -81,6 +81,10 @@ jobs:
           CORRECT_HASH=$(echo "$BUILD_OUTPUT" | grep -oP 'got:\s+\Ksha256-[A-Za-z0-9+/=]+')
 
           if [ -z "$CORRECT_HASH" ]; then
+            if echo "$BUILD_OUTPUT" | grep -q 'go.mod requires go >='; then
+              echo "::error::Upstream requires a newer Go toolchain than nixpkgs provides."
+              echo "Run 'nix flake update' (or pin buildGo<NNN>Module in flake.nix) once nixpkgs has it, then re-run."
+            fi
             echo "Failed to extract source hash from build output:"
             echo "$BUILD_OUTPUT"
             exit 1
@@ -107,6 +111,10 @@ jobs:
           CORRECT_HASH=$(echo "$BUILD_OUTPUT" | grep -oP 'got:\s+\Ksha256-[A-Za-z0-9+/=]+')
 
           if [ -z "$CORRECT_HASH" ]; then
+            if echo "$BUILD_OUTPUT" | grep -q 'go.mod requires go >='; then
+              echo "::error::Upstream requires a newer Go toolchain than nixpkgs provides."
+              echo "Run 'nix flake update' (or pin buildGo<NNN>Module in flake.nix) once nixpkgs has it, then re-run."
+            fi
             echo "Failed to extract vendorHash from build output:"
             echo "$BUILD_OUTPUT"
             exit 1
