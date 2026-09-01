@@ -19,16 +19,16 @@
           default = self.packages.${system}.flate;
           flate = pkgs.buildGo127Module {
             pname = "flate";
-            version = "0.6.1";
+            version = "0.6.2";
 
             src = pkgs.fetchFromGitHub {
               owner = "home-operations";
               repo = "flate";
-              rev = "v0.6.1";
-              hash = "sha256-CHd7zWERS6yvDvfwhAsU9P1Tybdo7odiadl/a7dzP9U=";
+              rev = "v0.6.2";
+              hash = "sha256-omjnwWCSoj/OU7O4vGwK4qkCoPT+kv/IP8s99AQ3eQs=";
             };
 
-            vendorHash = "sha256-xfQ+87upw0DE8Wek4KnSEjYeh9MC88J5+T4eovX7WAM=";
+            vendorHash = "sha256-pKO/oahZDvk3HVOSSFv/Qw0inRMUx35W6VTOYeEnD3Q=";
 
             subPackages = [ "cmd/flate" ];
 
@@ -41,7 +41,7 @@
             ldflags = [
               "-s"
               "-w"
-              "-X main.version=0.6.1"
+              "-X main.version=0.6.2"
             ];
 
             meta = with pkgs.lib; {
